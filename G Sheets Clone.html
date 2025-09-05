@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G Sheets- 𝙎𝙧𝙞𝙧𝙖𝙢</title>
+     <link rel="icon" href="Sriram2.jpg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #217346;
+            --header-bg: #f8f9fa;
+            --border-color: #dee2e6;
+            --cell-hover-bg: #e9ecef;
+            --selected-cell-bg: #d4edda;
+            --selected-cell-border: #1e8449;
+            --font-family: 'Inter', sans-serif;
+            --toolbar-height: 80px;
+            --formula-bar-height: 30px;
+            --sheet-bar-height: 30px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #fff;
+        }
+
+        /* --- Toolbar --- */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 8px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            height: var(--toolbar-height);
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            border-right: 1px solid var(--border-color);
+            padding: 0 12px;
+            margin-right: 12px;
+        }
+        
+        .toolbar-group:last-child {
+            border-right: none;
+            margin-right: 0;
+        }
+
+        .toolbar button, .toolbar input, .toolbar select {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            margin: 0 2px;
+            border-radius: 4px;
+            min-width: 36px;
+            text-align: center;
+            font-size: 16px;
+            transition: background-color 0.2s ease;
+        }
+
+        .toolbar button:hover, .toolbar select:hover {
+            background-color: var(--cell-hover-bg);
+        }
+
+        .toolbar button.active {
+            background-color: var(--selected-cell-bg);
+            color: var(--primary-color);
+        }
+        
+        .toolbar input[type="color"] {
+             width: 36px;
+             height: 36px;
+             padding: 4px;
+             border: 1px solid var(--border-color);
+        }
+
+        #filename-input {
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        #search-input {
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 4px;
+            width: 150px;
+        }
+
+        /* --- Formula Bar --- */
+        .formula-bar {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            height: var(--formula-bar-height);
+            background-color: #fff;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .selected-cell-label {
+            padding: 4px 8px;
+            font-weight: 700;
+            color: #555;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        #formula-input {
+            flex-grow: 1;
+            border: none;
+            outline: none;
+            padding: 4px 8px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+        }
+
+        /* --- Grid --- */
+        .grid-container {
+            flex-grow: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        .grid {
+            position: relative;
+            display: inline-grid;
+        }
+
+        .header-cell, .row-header-cell {
+            background-color: var(--header-bg);
+            border: 1px solid var(--border-color);
+            font-weight: 700;
+            text-align: center;
+            padding: 8px 0;
+            position: sticky;
+            z-index: 2;
+        }
+        
+        .header-cell { top: 0; }
+        .row-header-cell { left: 0; }
+
+        .cell {
+            border: 1px solid var(--border-color);
+            min-width: 100px;
+            padding: 8px;
+            outline: none;
+            white-space: nowrap;
+        }
+
+        .cell.selected {
+            border: 2px solid var(--selected-cell-border);
+            caret-color: var(--selected-cell-border);
+        }
+        
+        .cell.search-match {
+            background-color: #fff3cd;
+        }
+
+
+        /* --- Sheet Bar --- */
+        .sheet-bar {
+            display: flex;
+            align-items: center;
+            height: var(--sheet-bar-height);
+            background-color: var(--header-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 0 8px;
+        }
+
+        #add-sheet-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 8px;
+        }
+        
+        .sheet-tabs {
+            display: flex;
+            flex-grow: 1;
+            overflow-x: auto;
+        }
+
+        .sheet-tab {
+            padding: 6px 12px;
+            cursor: pointer;
+            border-right: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+        
+        .sheet-tab.active {
+            background-color: #fff;
+            border-top: 2px solid var(--primary-color);
+            font-weight: 700;
+        }
+        
+        /* Utility */
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <input type="text" value="Untitled Spreadsheet" id="filename-input">
+        </div>
+        <div class="toolbar-group">
+            <button id="download-btn"><i class="fas fa-download"></i></button>
+            <label for="upload-input" class="toolbar-button" role="button">
+                 <i class="fas fa-upload"></i>
+                 <input type="file" id="upload-input" class="hidden" accept=".csv">
+            </label>
+        </div>
+        <div class="toolbar-group">
+            <button id="bold-btn"><i class="fas fa-bold"></i></button>
+            <button id="italic-btn"><i class="fas fa-italic"></i></button>
+            <button id="underline-btn"><i class="fas fa-underline"></i></button>
+        </div>
+        <div class="toolbar-group">
+            <button id="align-left-btn"><i class="fas fa-align-left"></i></button>
+            <button id="align-center-btn"><i class="fas fa-align-center"></i></button>
+            <button id="align-right-btn"><i class="fas fa-align-right"></i></button>
+        </div>
+        <div class="toolbar-group">
+            <input type="color" id="font-color-picker" value="#000000">
+        </div>
+        <div class="toolbar-group">
+            <input type="text" id="search-input" placeholder="Search...">
+        </div>
+         <div class="toolbar-group">
+            <button id="sort-btn"><i class="fas fa-sort-alpha-down"></i> Sort A-Z</button>
+        </div>
+    </div>
+    <div class="formula-bar">
+        <div class="selected-cell-label" id="selected-cell-label">A1</div>
+        <input type="text" id="formula-input">
+    </div>
+    <div class="grid-container" id="grid-container"></div>
+    <div class="sheet-bar">
+        <button id="add-sheet-btn"><i class="fas fa-plus"></i></button>
+        <div class="sheet-tabs" id="sheet-tabs"></div>
+    </div>
+
+    <script>
+        const COLS = 26;
+        const ROWS = 100;
+        const LOCAL_STORAGE_KEY = 'spreadsheet-app-state';
+
+        let workbook = [];
+        let activeSheetIndex = 0;
+        let selectedCell = { col: 0, row: 0 };
+        
+        // --- DOM Elements ---
+        const gridContainer = document.getElementById('grid-container');
+        const formulaInput = document.getElementById('formula-input');
+        const selectedCellLabel = document.getElementById('selected-cell-label');
+        const sheetTabsContainer = document.getElementById('sheet-tabs');
+        
+        // --- Initialization ---
+        function init() {
+            loadState();
+            if (workbook.length === 0) {
+                createNewSheet();
+            }
+            render();
+            addEventListeners();
+        }
+
+        function createNewSheet(name = `Sheet${workbook.length + 1}`) {
+             const data = Array.from({ length: ROWS }, () => 
+                Array.from({ length: COLS }, () => ({
+                    value: '',
+                    formula: '',
+                    bold: false,
+                    italic: false,
+                    underline: false,
+                    align: 'left',
+                    color: '#000000'
+                }))
+            );
+            workbook.push({ name, data });
+            activeSheetIndex = workbook.length - 1;
+        }
+
+        // --- State Management ---
+        function getActiveSheet() {
+            return workbook[activeSheetIndex];
+        }
+
+        function getCell(col, row) {
+            return getActiveSheet()?.data?.[row]?.[col];
+        }
+
+        function saveState() {
+            const state = { workbook, activeSheetIndex };
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function loadState() {
+            const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                workbook = state.workbook;
+                activeSheetIndex = state.activeSheetIndex;
+            }
+        }
+
+        // --- Rendering ---
+        function render() {
+            renderGrid();
+            renderSheetTabs();
+            updateSelectedCellUI();
+        }
+
+        function renderGrid() {
+            gridContainer.innerHTML = '';
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+            grid.style.gridTemplateColumns = `60px repeat(${COLS}, 100px)`;
+
+            // Column Headers
+            grid.appendChild(document.createElement('div')); // Top-left empty cell
+            for (let c = 0; c < COLS; c++) {
+                const headerCell = document.createElement('div');
+                headerCell.className = 'header-cell';
+                headerCell.textContent = String.fromCharCode(65 + c);
+                grid.appendChild(headerCell);
+            }
+
+            // Rows and Cells
+            for (let r = 0; r < ROWS; r++) {
+                // Row Header
+                const rowHeaderCell = document.createElement('div');
+                rowHeaderCell.className = 'row-header-cell';
+                rowHeaderCell.textContent = r + 1;
+                grid.appendChild(rowHeaderCell);
+
+                for (let c = 0; c < COLS; c++) {
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'cell';
+                    cellDiv.dataset.col = c;
+                    cellDiv.dataset.row = r;
+                    cellDiv.contentEditable = true;
+
+                    const cellData = getCell(c, r);
+                    if (cellData) {
+                         cellDiv.innerText = evaluateCell(c, r);
+                         applyCellStyles(cellDiv, cellData);
+                    }
+                    grid.appendChild(cellDiv);
+                }
+            }
+            gridContainer.appendChild(grid);
+        }
+        
+        function renderSheetTabs() {
+            sheetTabsContainer.innerHTML = '';
+            workbook.forEach((sheet, index) => {
+                const tab = document.createElement('div');
+                tab.className = 'sheet-tab';
+                tab.textContent = sheet.name;
+                tab.dataset.index = index;
+                if (index === activeSheetIndex) {
+                    tab.classList.add('active');
+                }
+                sheetTabsContainer.appendChild(tab);
+            });
+        }
+
+        function applyCellStyles(cellDiv, cellData) {
+            cellDiv.style.fontWeight = cellData.bold ? 'bold' : 'normal';
+            cellDiv.style.fontStyle = cellData.italic ? 'italic' : 'normal';
+            cellDiv.style.textDecoration = cellData.underline ? 'underline' : 'none';
+            cellDiv.style.textAlign = cellData.align;
+            cellDiv.style.color = cellData.color;
+        }
+
+        function updateSelectedCellUI() {
+            const { col, row } = selectedCell;
+            const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
+            selectedCellLabel.textContent = cellName;
+
+            const cellData = getCell(col, row);
+            formulaInput.value = cellData.formula || cellData.value;
+            
+            document.querySelectorAll('.cell.selected').forEach(c => c.classList.remove('selected'));
+            const cellDiv = document.querySelector(`.cell[data-col='${col}'][data-row='${row}']`);
+            if (cellDiv) cellDiv.classList.add('selected');
+
+            updateToolbar(cellData);
+        }
+
+        function updateToolbar(cellData) {
+             document.getElementById('bold-btn').classList.toggle('active', cellData.bold);
+             document.getElementById('italic-btn').classList.toggle('active', cellData.italic);
+             document.getElementById('underline-btn').classList.toggle('active', cellData.underline);
+             
+             document.querySelectorAll('[id^="align-"]').forEach(btn => btn.classList.remove('active'));
+             document.getElementById(`align-${cellData.align}-btn`).classList.add('active');
+             
+             document.getElementById('font-color-picker').value = cellData.color;
+        }
+
+        // --- Event Listeners ---
+        function addEventListeners() {
+            gridContainer.addEventListener('click', handleGridClick);
+            gridContainer.addEventListener('input', handleCellInput);
+            formulaInput.addEventListener('input', handleFormulaInput);
+            document.getElementById('add-sheet-btn').addEventListener('click', handleAddSheet);
+            sheetTabsContainer.addEventListener('click', handleSheetTabClick);
+            
+            // Toolbar Listeners
+            document.getElementById('bold-btn').addEventListener('click', () => toggleFormatting('bold'));
+            document.getElementById('italic-btn').addEventListener('click', () => toggleFormatting('italic'));
+            document.getElementById('underline-btn').addEventListener('click', () => toggleFormatting('underline'));
+            
+            document.getElementById('align-left-btn').addEventListener('click', () => setAlignment('left'));
+            document.getElementById('align-center-btn').addEventListener('click', () => setAlignment('center'));
+            document.getElementById('align-right-btn').addEventListener('click', () => setAlignment('right'));
+            
+            document.getElementById('font-color-picker').addEventListener('input', handleColorChange);
+
+            document.getElementById('download-btn').addEventListener('click', handleDownload);
+            document.getElementById('upload-input').addEventListener('change', handleUpload);
+            
+            document.getElementById('search-input').addEventListener('input', handleSearch);
+            document.getElementById('sort-btn').addEventListener('click', handleSort);
+        }
+
+        // --- Event Handlers ---
+        function handleGridClick(e) {
+            if (e.target.classList.contains('cell')) {
+                selectedCell = {
+                    col: parseInt(e.target.dataset.col),
+                    row: parseInt(e.target.dataset.row)
+                };
+                updateSelectedCellUI();
+            }
+        }
+
+        function handleCellInput(e) {
+            if (e.target.classList.contains('cell')) {
+                const { col, row } = e.target.dataset;
+                const cellData = getCell(col, row);
+                const value = e.target.innerText;
+
+                if (value.startsWith('=')) {
+                    cellData.formula = value;
+                    cellData.value = '';
+                } else {
+                    cellData.formula = '';
+                    cellData.value = value;
+                }
+                
+                // When a cell is edited, we must re-render the whole grid
+                // because other cells might depend on it for formulas.
+                renderGrid(); 
+                // Restore focus to the edited cell
+                document.querySelector(`.cell[data-col='${col}'][data-row='${row}']`).focus();
+
+                saveState();
+                updateSelectedCellUI();
+            }
+        }
+
+        function handleFormulaInput(e) {
+            const { col, row } = selectedCell;
+            const cellData = getCell(col, row);
+            const value = e.target.value;
+
+            if (value.startsWith('=')) {
+                cellData.formula = value;
+                cellData.value = '';
+            } else {
+                cellData.formula = '';
+                cellData.value = value;
+            }
+
+            const cellDiv = document.querySelector(`.cell[data-col='${col}'][data-row='${row}']`);
+            cellDiv.innerText = evaluateCell(col, row);
+            
+            saveState();
+        }
+
+        function handleAddSheet() {
+            createNewSheet();
+            render();
+            saveState();
+        }
+        
+        function handleSheetTabClick(e) {
+            if (e.target.classList.contains('sheet-tab')) {
+                activeSheetIndex = parseInt(e.target.dataset.index);
+                render();
+            }
+        }
+        
+        // --- Formatting Handlers ---
+        function toggleFormatting(prop) {
+            const { col, row } = selectedCell;
+            const cellData = getCell(col, row);
+            cellData[prop] = !cellData[prop];
+            render();
+            saveState();
+        }
+        
+        function setAlignment(align) {
+            const { col, row } = selectedCell;
+            const cellData = getCell(col, row);
+            cellData.align = align;
+            render();
+            saveState();
+        }
+        
+        function handleColorChange(e) {
+            const { col, row } = selectedCell;
+            const cellData = getCell(col, row);
+            cellData.color = e.target.value;
+            render();
+            saveState();
+        }
+        
+        // --- Formula Engine ---
+        function evaluateCell(col, row) {
+            const cellData = getCell(col, row);
+            if (!cellData) return '';
+            if (cellData.formula) {
+                try {
+                    return evaluateFormula(cellData.formula.substring(1));
+                } catch (error) {
+                    return '#ERROR!';
+                }
+            }
+            return cellData.value;
+        }
+
+        function evaluateFormula(formula) {
+            // Very basic SUM and AVG implementation
+            const sumRegex = /SUM\((.+)\)/i;
+            const avgRegex = /AVG\((.+)\)/i;
+            
+            if (sumRegex.test(formula)) {
+                const range = formula.match(sumRegex)[1];
+                const values = getValuesFromRange(range);
+                return values.reduce((acc, val) => acc + val, 0);
+            }
+            
+            if (avgRegex.test(formula)) {
+                const range = formula.match(avgRegex)[1];
+                const values = getValuesFromRange(range);
+                return values.reduce((acc, val) => acc + val, 0) / values.length;
+            }
+
+            // For simple arithmetic like A1+B1
+            formula = formula.replace(/([A-Z]+\d+)/g, (match) => {
+                const { col, row } = getCoordsFromCellName(match);
+                const val = parseFloat(evaluateCell(col, row));
+                return isNaN(val) ? 0 : val;
+            });
+            return new Function('return ' + formula)();
+        }
+
+        function getValuesFromRange(rangeStr) {
+            const [start, end] = rangeStr.split(':');
+            const startCoords = getCoordsFromCellName(start);
+            const endCoords = getCoordsFromCellName(end);
+            
+            const values = [];
+            for (let r = startCoords.row; r <= endCoords.row; r++) {
+                for (let c = startCoords.col; c <= endCoords.col; c++) {
+                    const val = parseFloat(evaluateCell(c, r));
+                    if (!isNaN(val)) {
+                        values.push(val);
+                    }
+                }
+            }
+            return values;
+        }
+
+        function getCoordsFromCellName(cellName) {
+            const colName = cellName.match(/[A-Z]+/)[0];
+            const row = parseInt(cellName.match(/\d+/)[0]) - 1;
+            const col = colName.charCodeAt(0) - 65;
+            return { col, row };
+        }
+        
+        // --- Advanced Data Manipulation ---
+        function handleSearch(e) {
+            const query = e.target.value.toLowerCase();
+            document.querySelectorAll('.cell.search-match').forEach(c => c.classList.remove('search-match'));
+            
+            if (!query) return;
+
+            const sheetData = getActiveSheet().data;
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const cellValue = evaluateCell(c, r).toString().toLowerCase();
+                    if (cellValue.includes(query)) {
+                        const cellDiv = document.querySelector(`.cell[data-col='${c}'][data-row='${r}']`);
+                        if (cellDiv) cellDiv.classList.add('search-match');
+                    }
+                }
+            }
+        }
+        
+        function handleSort() {
+            // Basic sort on the first column for simplicity
+            const sheetData = getActiveSheet().data;
+            // Create a temporary array of rows with content to sort, keeping track of original index
+            const rowsToSort = [];
+            sheetData.forEach((row, index) => {
+                 if (row.some(cell => cell.value.trim() !== '')) {
+                     rowsToSort.push({ data: row, originalIndex: index });
+                 }
+            });
+
+            rowsToSort.sort((a, b) => {
+                const valA = a.data[0].value.toLowerCase();
+                const valB = b.data[0].value.toLowerCase();
+                if (valA < valB) return -1;
+                if (valA > valB) return 1;
+                return 0;
+            });
+
+            // Create a new data array with sorted rows and empty rows at the bottom
+            const newData = Array.from({ length: ROWS }, () => 
+                Array.from({ length: COLS }, () => ({ value: '', formula: '', bold: false, italic: false, underline: false, align: 'left', color: '#000000' }))
+            );
+            
+            rowsToSort.forEach((sortedRow, newIndex) => {
+                newData[newIndex] = sortedRow.data;
+            });
+            
+            getActiveSheet().data = newData;
+            render();
+            saveState();
+        }
+        
+        // --- File Handling ---
+        function handleDownload() {
+            const filename = document.getElementById('filename-input').value || 'spreadsheet.json';
+            const data = JSON.stringify(workbook, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename.endsWith('.json') ? filename : `${filename}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function handleUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const csvData = event.target.result;
+                const rows = csvData.split('\n');
+                createNewSheet(file.name.replace('.csv', ''));
+                const sheetData = getActiveSheet().data;
+                
+                rows.forEach((rowStr, r) => {
+                    const cols = rowStr.split(',');
+                    cols.forEach((colVal, c) => {
+                        if (r < ROWS && c < COLS) {
+                            sheetData[r][c].value = colVal.trim();
+                        }
+                    });
+                });
+                render();
+                saveState();
+            };
+            reader.readAsText(file);
+            e.target.value = ''; // Reset input
+        }
+
+        // --- Start the App ---
+        init();
+    </script>
+</body>
+</html>
